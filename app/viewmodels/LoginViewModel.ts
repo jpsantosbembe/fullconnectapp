@@ -10,6 +10,7 @@ export const useLoginViewModel = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
+    const [loginSuccess, setLoginSuccess] = useState(false);
 
     const initializeForm = async () => {
         try {
@@ -30,6 +31,7 @@ export const useLoginViewModel = () => {
     const login = async () => {
         setLoading(true);
         setError(null);
+        setLoginSuccess(false);
 
         try {
             const credentials: LoginCredentials = {
@@ -49,7 +51,15 @@ export const useLoginViewModel = () => {
                 await storage.saveRememberMe(false);
             }
 
-            setUser(response.user);
+            try {
+                const userInfo = await AuthService.getCurrentUser(response.token);
+                setUser(userInfo);
+            } catch (error) {
+                console.error('Erro ao obter informações do usuário:', error);
+                setUser(response.user);
+            }
+
+            setLoginSuccess(true);
 
             return response;
         } catch (error) {
@@ -70,6 +80,7 @@ export const useLoginViewModel = () => {
         loading,
         error,
         user,
+        loginSuccess,
         login,
         initializeForm
     };

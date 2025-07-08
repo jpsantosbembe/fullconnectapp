@@ -27,19 +27,24 @@ const LoginScreen: React.FC = () => {
         setRememberMe,
         loading,
         error,
+        loginSuccess,
         login,
         initializeForm
     } = useLoginViewModel();
 
     useEffect(() => {
-        // Inicializar o formulário com dados salvos (se "lembrar-me" estiver ativado)
         initializeForm();
     }, []);
+
+    useEffect(() => {
+        if (loginSuccess) {
+            navigation.navigate('Home');
+        }
+    }, [loginSuccess, navigation]);
 
     const handleLogin = async () => {
         try {
             await login();
-            // Em um app real, você redirecionaria para a tela principal aqui
             console.log('Login realizado com sucesso!');
         } catch (error) {
             // Erro já é tratado no ViewModel

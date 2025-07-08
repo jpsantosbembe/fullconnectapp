@@ -1,6 +1,6 @@
 import { LoginCredentials, LoginResponse, User } from '../models/User';
 
-const API_URL = 'http://10.0.2.2:3000';
+const API_URL = 'http://172.16.0.100:3000';
 
 export class AuthService {
 

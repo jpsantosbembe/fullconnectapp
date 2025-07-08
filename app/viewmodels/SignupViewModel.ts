@@ -1,3 +1,4 @@
+// fullconnect/app/viewmodels/SignupViewModel.ts (Modified)
 import { useState } from 'react';
 import { AuthService } from '../services/AuthService';
 
@@ -62,7 +63,7 @@ export const useSignupViewModel = () => {
             const result = await AuthService.signup(userData);
             setSuccess(true);
             return { success: true };
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof Error) {
                 setError(error.message);
                 return { success: false, error: error.message };

@@ -1,3 +1,4 @@
+// fullconnect/app/views/login/components/LoginForm.tsx (Modified with console.logs)
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { TextInput, Button, Checkbox, Text, HelperText } from 'react-native-paper';
@@ -35,14 +36,17 @@ const LoginForm: React.FC<LoginFormProps> = (
     const [passwordError, setPasswordError] = useState<string | null>(null);
 
     const validateForm = (): boolean => {
+        console.log('LoginForm: Running validateForm...');
         let isValid = true;
 
         if (!email.trim()) {
             setEmailError('O e-mail é obrigatório');
             isValid = false;
+            console.log('LoginForm: Validation failed - Email is empty.');
         } else if (!/\S+@\S+\.\S+/.test(email)) {
             setEmailError('Digite um e-mail válido');
             isValid = false;
+            console.log('LoginForm: Validation failed - Invalid email format.');
         } else {
             setEmailError(null);
         }
@@ -50,16 +54,21 @@ const LoginForm: React.FC<LoginFormProps> = (
         if (!password) {
             setPasswordError('A senha é obrigatória');
             isValid = false;
+            console.log('LoginForm: Validation failed - Password is empty.');
         } else {
             setPasswordError(null);
         }
-
+        console.log('LoginForm: validateForm finished. Is valid?', isValid);
         return isValid;
     };
 
     const handleSubmit = () => {
+        console.log('LoginForm: handleSubmit called.');
         if (validateForm()) {
+            console.log('LoginForm: Form is valid, calling onSubmit.');
             onSubmit();
+        } else {
+            console.log('LoginForm: Form is invalid, onSubmit not called.');
         }
     };
 

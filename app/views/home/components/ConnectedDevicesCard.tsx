@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+// views/home/components/ConnectedDevicesCard.tsx
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, Text } from 'react-native-paper';
 
-const ConnectedDevicesCard: React.FC = () => {
-    // Estado para número aleatório de dispositivos (gerado apenas uma vez)
-    const [connectedDevices] = useState(
-        Math.floor(Math.random() * 51) + 50 // Número entre 50 e 100
-    );
+interface ConnectedDevicesCardProps {
+    connectedDevicesCount?: number;
+}
+
+const ConnectedDevicesCard: React.FC<ConnectedDevicesCardProps> = ({ connectedDevicesCount }) => {
+    // Usar o número da API ou um número aleatório se não estiver disponível
+    const displayCount = connectedDevicesCount || Math.floor(Math.random() * 51) + 50;
 
     return (
         <Card style={styles.devicesCard}>
@@ -15,7 +18,7 @@ const ConnectedDevicesCard: React.FC = () => {
                     Dispositivos Conectados
                 </Text>
                 <Text variant="displayMedium" style={styles.devicesCount}>
-                    {connectedDevices}
+                    {displayCount}
                 </Text>
             </Card.Content>
         </Card>

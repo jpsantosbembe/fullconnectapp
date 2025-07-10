@@ -1,42 +1,18 @@
-import React from 'react';
-import { Router } from '../models/Router';
-import { storage } from '../utils/storage';
-
-const API_URL = 'http://172.16.0.100:3000';
+// services/DashboardService.ts
+import { DashboardData } from '../models/DashboardData';
+import { authGet } from './authClient';
 
 export class DashboardService {
-
-    static async getDashboard(): Promise<Router[]> {
+    static async getDashboard(companyId: number): Promise<DashboardData> {
+        console.log('DashboardService: getDashboard function called for company ID:', companyId);
         try {
-            const token = await storage.getToken();
-
-            if (!token) {
-                throw new Error('Token de autenticação não encontrado');
-            }
-
-            const response = await fetch(`${API_URL}/dashboard`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-            });
-
-            console.log(response);
-
-            if (!response.ok) {
-                throw new Error('Falha ao obter dados do dashboard');
-            }
-
-            const data = await response.json();
-            return data as Router[];
-        } catch (error) {
-            console.error('Erro ao obter dados do dashboard:', error);
-            throw error;
+            console.log(`DashboardService: Attempting to call authGet for /dashboard/${companyId}.`);
+            const data = await authGet(`/dashboard/${companyId}`);
+            console.log('DashboardService: Response received from authGet for /dashboard/', data);
+            return data as DashboardData;
+        } catch (error: any) {
+            console.error('DashboardService: Error during getDashboard:', error);
+            throw new Error(error.message || 'Não foi possível carregar os dados do dashboard');
         }
     }
 }
-
-const DashboardServiceComponent = () => null;
-
-export default DashboardServiceComponent;

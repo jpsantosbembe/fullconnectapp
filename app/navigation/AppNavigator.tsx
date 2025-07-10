@@ -1,3 +1,4 @@
+// fullconnect/app/navigation/AppNavigator.tsx
 import React, { useState, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from 'react-native-paper';
@@ -6,7 +7,7 @@ import LoginScreen from '../views/login/LoginScreen';
 import SignupScreen from '../views/signup/SignupScreen';
 import HomeScreen from '../views/home/HomeScreen';
 import RouterDetailScreen from '../views/router/RouterDetailScreen';
-import { storage } from '../utils/storage';
+import { tokenService } from '../services/tokenService'; // Import the new tokenService
 
 export type RootStackParamList = {
     Login: undefined;
@@ -24,7 +25,8 @@ const AppNavigator: React.FC = () => {
 
     useEffect(() => {
         const checkAuth = async () => {
-            const token = await storage.getToken();
+            // Check if user has an access token
+            const token = await tokenService.getAccessToken(); // Use tokenService
             setIsAuthenticated(!!token);
         };
 

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+// views/home/HomeScreen.tsx
+import React, {useEffect, useRef, useState} from 'react';
 import {
     StyleSheet,
     View,
@@ -15,21 +16,25 @@ import {
     useTheme,
     ActivityIndicator,
     IconButton,
+    Snackbar,
 } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { storage } from '../../utils/storage';
 import { useDashboardViewModel } from '../../viewmodels/DashboardViewModel';
+import { useLoginViewModel } from '../../viewmodels/LoginViewModel';
 import RouterCard from './components/RouterCard';
 import ConnectedDevicesCard from './components/ConnectedDevicesCard';
 import DowndetectorCard from './components/DowndetectorCard';
 import LatencyCard from './components/LatencyCard';
+import CompanySelector from './components/CompanySelector';
+import { useCallback } from 'react';
 
 // Configurações de altura do header
-const HEADER_MAX_HEIGHT = 150; // Altura máxima do header (aumentada)
-const HEADER_MIN_HEIGHT = 80; // Altura mínima do header (aumentada)
+const HEADER_MAX_HEIGHT = 150;
+const HEADER_MIN_HEIGHT = 80;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 
 // Logo placeholder
@@ -40,14 +45,32 @@ type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'H
 const HomeScreen: React.FC = () => {
     const theme = useTheme();
     const navigation = useNavigation<HomeScreenNavigationProp>();
+
     const {
+        userValidationStatus,
+        error: loginError,
+        user,
+        loadAndValidateCurrentUser,
+    } = useLoginViewModel();
+
+    const {
+        companies,
+        selectedCompany,
+        changeCompany,
+        dashboardData,
         routers,
-        loading,
-        error,
+        externalServicesStatus,
+        pingLatencyMetrics,
+        connectedDevicesCount,
+        loading: dashboardLoading,
+        error: dashboardError,
         refreshing,
         loadDashboard,
         refreshDashboard
-    } = useDashboardViewModel();
+    } = useDashboardViewModel(user?.companies || []);
+
+    const [snackbarVisible, setSnackbarVisible] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
 
     // Animação para o scroll
     const scrollY = useRef(new Animated.Value(0)).current;
@@ -99,10 +122,28 @@ const HomeScreen: React.FC = () => {
         extrapolate: 'clamp',
     });
 
-    useEffect(() => {
-        // Carregar dados do dashboard quando a tela for montada
-        loadDashboard();
-    }, []);
+    // Effect to handle post-login validation status
+    useFocusEffect(
+        useCallback(() => {
+            // If we land on HomeScreen and user data hasn't been validated yet
+            if (userValidationStatus === 'pending' && !dashboardLoading && !dashboardError) {
+                // Trigger the user validation process
+                loadAndValidateCurrentUser();
+            } else if (userValidationStatus === 'blocked_admin') {
+                setSnackbarMessage(loginError || 'Sua conta possui apenas o papel de Administrador. Acesse o sistema pela versão web.');
+                setSnackbarVisible(true);
+            } else if (userValidationStatus === 'no_companies') {
+                setSnackbarMessage(loginError || 'Você não está associado a nenhuma empresa. Por favor, entre em contato com o administrador do sistema.');
+                setSnackbarVisible(true);
+            } else if (userValidationStatus === 'ok_to_proceed') {
+                // Se temos um usuário validado mas não temos dados de dashboard,
+                // e temos uma empresa selecionada, carregamos o dashboard
+                if (!dashboardData && selectedCompany) {
+                    loadDashboard();
+                }
+            }
+        }, [userValidationStatus, loginError, dashboardData, selectedCompany, loadDashboard, loadAndValidateCurrentUser])
+    );
 
     const handleLogout = async () => {
         // Limpar dados de autenticação
@@ -114,6 +155,13 @@ const HomeScreen: React.FC = () => {
 
     // Renderizar cards em grade
     const renderRouterGrid = () => {
+        if (!routers || routers.length === 0) {
+            return (
+                <View style={styles.centerContainer}>
+                    <Text style={styles.emptyText}>Nenhum router encontrado para esta empresa.</Text>
+                </View>
+            );
+        }
         return (
             <View style={styles.cardsGrid}>
                 {routers.map((router) => (
@@ -125,7 +173,36 @@ const HomeScreen: React.FC = () => {
 
     // Renderizar conteúdo principal
     const renderContent = () => {
-        if (loading) {
+        if (userValidationStatus === 'pending') {
+            return (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                    <Text style={styles.loadingText}>Verificando permissões do usuário...</Text>
+                </View>
+            );
+        }
+
+        if (userValidationStatus === 'blocked_admin') {
+            return (
+                <View style={styles.centerContainer}>
+                    <Text style={styles.errorText}>
+                        Sua conta possui apenas o papel de Administrador.
+                    </Text>
+                    <Text style={styles.errorText}>
+                        Por favor, acesse o sistema pela versão web.
+                    </Text>
+                    <Button
+                        mode="contained"
+                        onPress={handleLogout}
+                        style={styles.retryButton}
+                    >
+                        Voltar para o Login
+                    </Button>
+                </View>
+            );
+        }
+
+        if (dashboardLoading) {
             return (
                 <View style={styles.centerContainer}>
                     <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -134,10 +211,10 @@ const HomeScreen: React.FC = () => {
             );
         }
 
-        if (error) {
+        if (dashboardError) {
             return (
                 <View style={styles.centerContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
+                    <Text style={styles.errorText}>{dashboardError}</Text>
                     <Button
                         mode="contained"
                         onPress={() => loadDashboard()}
@@ -149,20 +226,12 @@ const HomeScreen: React.FC = () => {
             );
         }
 
-        if (!routers || routers.length === 0) {
-            return (
-                <View style={styles.centerContainer}>
-                    <Text style={styles.emptyText}>Nenhum router encontrado</Text>
-                </View>
-            );
-        }
-
         return (
             <>
                 {renderRouterGrid()}
-                <ConnectedDevicesCard />
-                <DowndetectorCard />
-                <LatencyCard routers={routers} />
+                <ConnectedDevicesCard connectedDevicesCount={connectedDevicesCount} />
+                <DowndetectorCard serviceStatus={externalServicesStatus} />
+                <LatencyCard pingLatencyMetrics={pingLatencyMetrics} />
                 {/* Espaço extra para garantir que o scroll funcione */}
                 <View style={{ height: 100 }} />
             </>
@@ -212,12 +281,27 @@ const HomeScreen: React.FC = () => {
                             FullConnect
                         </Animated.Text>
                     </View>
-                    <IconButton
-                        icon="logout"
-                        iconColor="#fff"
-                        size={24}
-                        onPress={handleLogout}
-                    />
+
+                    <View style={styles.headerActions}>
+                        {/* Novo: Seletor de Empresa */}
+                        {userValidationStatus === 'ok_to_proceed' && companies && companies.length > 0 && (
+                            <CompanySelector
+                                companies={companies}
+                                selectedCompany={selectedCompany}
+                                onCompanyChange={changeCompany}
+                                disabled={dashboardLoading}
+                            />
+                        )}
+
+                        {userValidationStatus !== 'blocked_admin' && (
+                            <IconButton
+                                icon="logout"
+                                iconColor="#fff"
+                                size={24}
+                                onPress={handleLogout}
+                            />
+                        )}
+                    </View>
                 </Animated.View>
             </Animated.View>
 
@@ -231,12 +315,14 @@ const HomeScreen: React.FC = () => {
                     { useNativeDriver: false }
                 )}
                 refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={refreshDashboard}
-                        colors={[theme.colors.primary]}
-                        progressViewOffset={HEADER_MAX_HEIGHT}
-                    />
+                    userValidationStatus === 'ok_to_proceed' || userValidationStatus === 'no_companies' ? (
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={refreshDashboard}
+                            colors={[theme.colors.primary]}
+                            progressViewOffset={HEADER_MAX_HEIGHT}
+                        />
+                    ) : undefined
                 }
             >
                 {/* Espaço para o header */}
@@ -254,6 +340,14 @@ const HomeScreen: React.FC = () => {
                     {renderContent()}
                 </Animated.View>
             </Animated.ScrollView>
+            <Snackbar
+                visible={snackbarVisible}
+                onDismiss={() => setSnackbarVisible(false)}
+                duration={Snackbar.DURATION_LONG}
+                style={{ backgroundColor: theme.colors.errorContainer }}
+            >
+                <Text style={{ color: theme.colors.onErrorContainer }}>{snackbarMessage}</Text>
+            </Snackbar>
         </SafeAreaView>
     );
 };
@@ -283,6 +377,10 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     titleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    headerActions: {
         flexDirection: 'row',
         alignItems: 'center',
     },

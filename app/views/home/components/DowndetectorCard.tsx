@@ -1,11 +1,27 @@
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, Animated, Text } from 'react-native';
 import { Card } from 'react-native-paper';
+import { ExternalServiceStatus } from '../../../models/DashboardData';
 
-const DowndetectorCard: React.FC = () => {
+interface DowndetectorCardProps {
+    serviceStatus?: ExternalServiceStatus[];
+}
+
+const DowndetectorCard: React.FC<DowndetectorCardProps> = ({ serviceStatus = [] }) => {
     // Animação para pulsar no Downdetector
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const opacityAnim = useRef(new Animated.Value(0.6)).current;
+
+    // Dados padrão para usar se não houver dados da API
+    const defaultServices: ExternalServiceStatus[] = [
+        { name: 'Google', status: 'Normal', outages: 0 },
+        { name: 'Amazon', status: 'Problemas', outages: 12 },
+        { name: 'Facebook', status: 'Interrupção', outages: 37 },
+        { name: 'Microsoft', status: 'Normal', outages: 2 },
+    ];
+
+    // Usar dados da API se disponíveis, caso contrário, usar os dados padrão
+    const services = serviceStatus.length > 0 ? serviceStatus : defaultServices;
 
     // Criar animação de pulso para o Downdetector
     useEffect(() => {
@@ -40,42 +56,53 @@ const DowndetectorCard: React.FC = () => {
         ).start();
     }, []);
 
-    // Renderizar informações fictícias do Downdetector com animação
-    const renderDowndetectorInfo = () => {
-        // Dados fictícios para o Downdetector
-        const services = [
-            { name: 'Google', status: 'Normal', outages: 0, color: '#4CAF50' },
-            { name: 'Amazon', status: 'Problemas', outages: 12, color: '#FFC107' },
-            { name: 'Facebook', status: 'Interrupção', outages: 37, color: '#F44336' },
-            { name: 'Microsoft', status: 'Normal', outages: 2, color: '#4CAF50' },
-        ];
+    // Função para determinar a cor baseada no status
+    const getStatusColor = (status: string) => {
+        switch(status.toLowerCase()) {
+            case 'normal':
+                return '#4CAF50';
+            case 'problemas':
+                return '#FFC107';
+            case 'interrupção':
+            case 'interrupcao':
+                return '#F44336';
+            default:
+                return '#4CAF50';
+        }
+    };
 
+    // Renderizar informações do Downdetector com animação
+    const renderDowndetectorInfo = () => {
         return (
             <View style={styles.servicesContainer}>
-                {services.map((service, index) => (
-                    <View key={index} style={styles.serviceItem}>
-                        <View style={styles.statusContainer}>
-                            {/* Halo animado */}
-                            <Animated.View
-                                style={[
-                                    styles.statusHalo,
-                                    {
-                                        backgroundColor: service.color,
-                                        transform: [{ scale: pulseAnim }],
-                                        opacity: opacityAnim
-                                    }
-                                ]}
-                            />
-                            {/* Indicador fixo */}
-                            <View style={[styles.statusIndicator, { backgroundColor: service.color }]} />
+                {services.map((service, index) => {
+                    const statusColor = getStatusColor(service.status);
+
+                    return (
+                        <View key={index} style={styles.serviceItem}>
+                            <View style={styles.statusContainer}>
+                                {/* Halo animado */}
+                                <Animated.View
+                                    style={[
+                                        styles.statusHalo,
+                                        {
+                                            backgroundColor: statusColor,
+                                            transform: [{ scale: pulseAnim }],
+                                            opacity: opacityAnim
+                                        }
+                                    ]}
+                                />
+                                {/* Indicador fixo */}
+                                <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
+                            </View>
+                            <View style={styles.serviceInfo}>
+                                <Text style={styles.serviceName}>{service.name}</Text>
+                                <Text style={styles.serviceStatus}>{service.status}</Text>
+                            </View>
+                            <Text style={styles.outageCount}>{service.outages}</Text>
                         </View>
-                        <View style={styles.serviceInfo}>
-                            <Text style={styles.serviceName}>{service.name}</Text>
-                            <Text style={styles.serviceStatus}>{service.status}</Text>
-                        </View>
-                        <Text style={styles.outageCount}>{service.outages}</Text>
-                    </View>
-                ))}
+                    );
+                })}
             </View>
         );
     };

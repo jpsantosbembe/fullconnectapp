@@ -1,6 +1,8 @@
+// views/home/components/LatencyCard.tsx
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Image, Text } from 'react-native';
 import { Card } from 'react-native-paper';
+import { PingLatencyMetric } from '../../../models/DashboardData';
 import { Router } from '../../../models/Router';
 
 // Logos fictícias para os serviços
@@ -12,57 +14,62 @@ const SERVICE_LOGOS = {
 };
 
 interface LatencyCardProps {
-    routers: Router[];
+    pingLatencyMetrics?: PingLatencyMetric[];
 }
 
-const LatencyCard: React.FC<LatencyCardProps> = ({ routers }) => {
+const LatencyCard: React.FC<LatencyCardProps> = ({ pingLatencyMetrics = [] }) => {
     // Estado para latências que se atualizam
     const [latencies, setLatencies] = useState({});
 
     // Atualizar latências a cada segundo
     useEffect(() => {
-        if (routers && routers.length > 0) {
-            // Inicialização
+        // Inicialização
+        updateLatencies();
+
+        // Configurar intervalo para atualizar as latências
+        const interval = setInterval(() => {
             updateLatencies();
+        }, 1000);
 
-            // Configurar intervalo para atualizar as latências
-            const interval = setInterval(() => {
-                updateLatencies();
-            }, 1000);
-
-            return () => clearInterval(interval);
-        }
-    }, [routers]);
+        return () => clearInterval(interval);
+    }, [pingLatencyMetrics]);
 
     // Função para atualizar as latências com valores aleatórios
     const updateLatencies = () => {
-        if (!routers || routers.length === 0) return;
+        // Usar métricas da API se disponíveis, ou dados fictícios
+        const services = pingLatencyMetrics.length > 0
+            ? pingLatencyMetrics.map(metric => metric.name)
+            : ['Google', 'Amazon', 'Facebook', 'Microsoft'];
 
-        const services = ['Google', 'Amazon', 'Facebook', 'Microsoft'];
         const newLatencies = {};
 
         // Para cada serviço
         services.forEach(service => {
             newLatencies[service] = {};
 
-            // Para cada provider nos routers
-            routers.forEach(router => {
-                if (router.providers && router.providers.length > 0) {
-                    router.providers.forEach(provider => {
-                        // Gerar latência aleatória entre 10ms e 150ms
-                        const latency = Math.floor(Math.random() * 140) + 10;
+            // Criar pelo menos um provider por serviço com latência aleatória
+            const providerId = Math.floor(Math.random() * 1000);
+            const latency = Math.floor(Math.random() * 140) + 10;
 
-                        if (!newLatencies[service][provider.id]) {
-                            newLatencies[service][provider.id] = {
-                                providerId: provider.id,
-                                providerName: provider.nome || 'Provider',
-                                providerLogo: provider.logoUrl,
-                                latency: latency
-                            };
-                        }
-                    });
-                }
-            });
+            newLatencies[service][providerId] = {
+                providerId: providerId,
+                providerName: 'Provider ' + providerId,
+                providerLogo: null,
+                latency: latency
+            };
+
+            // Adicionar um segundo provider aleatório para alguns serviços
+            if (Math.random() > 0.5) {
+                const providerId2 = providerId + 1;
+                const latency2 = Math.floor(Math.random() * 140) + 10;
+
+                newLatencies[service][providerId2] = {
+                    providerId: providerId2,
+                    providerName: 'Provider ' + providerId2,
+                    providerLogo: null,
+                    latency: latency2
+                };
+            }
         });
 
         setLatencies(newLatencies);
@@ -79,22 +86,29 @@ const LatencyCard: React.FC<LatencyCardProps> = ({ routers }) => {
         }
 
         // Serviços que queremos exibir
-        const services = ['Google', 'Amazon', 'Facebook', 'Microsoft'];
+        const services = Object.keys(latencies);
 
         return (
             <View style={styles.servicesLatencyContainer}>
                 {services.map((service, serviceIndex) => {
                     const serviceProviders = latencies[service] || {};
+                    const logoUrl = SERVICE_LOGOS[service] || null;
 
                     return (
                         <View key={serviceIndex} style={styles.serviceLatencyGroup}>
                             {/* Logo e nome do serviço */}
                             <View style={styles.serviceHeader}>
-                                <Image
-                                    source={{ uri: SERVICE_LOGOS[service] }}
-                                    style={styles.serviceLogo}
-                                    resizeMode="contain"
-                                />
+                                {logoUrl ? (
+                                    <Image
+                                        source={{ uri: logoUrl }}
+                                        style={styles.serviceLogo}
+                                        resizeMode="contain"
+                                    />
+                                ) : (
+                                    <View style={styles.serviceLogoPlaceholder}>
+                                        <Text style={styles.serviceLogoText}>{service.charAt(0)}</Text>
+                                    </View>
+                                )}
                                 <Text style={styles.serviceLatencyName}>{service}</Text>
                             </View>
 
@@ -194,6 +208,19 @@ const styles = StyleSheet.create({
         width: 80,
         height: 24,
         marginRight: 12,
+    },
+    serviceLogoPlaceholder: {
+        width: 40,
+        height: 24,
+        backgroundColor: '#3578E5',
+        borderRadius: 4,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    serviceLogoText: {
+        color: 'white',
+        fontWeight: 'bold',
     },
     serviceLatencyName: {
         fontSize: 18,

@@ -1,27 +1,14 @@
+// fullconnect/app/utils/storage.ts (Modified)
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { tokenService } from '../services/tokenService'; // Import the new tokenService
 
-const TOKEN_KEY = '@FullConnect:token';
 const USER_KEY = '@FullConnect:user';
 const REMEMBER_ME_KEY = '@FullConnect:rememberMe';
 const SAVED_EMAIL_KEY = '@FullConnect:savedEmail';
 
 export const storage = {
-  saveToken: async (token: string): Promise<void> => {
-    try {
-      await AsyncStorage.setItem(TOKEN_KEY, token);
-    } catch (error) {
-      console.error('Erro ao salvar token:', error);
-    }
-  },
-
-  getToken: async (): Promise<string | null> => {
-    try {
-      return await AsyncStorage.getItem(TOKEN_KEY);
-    } catch (error) {
-      console.error('Erro ao obter token:', error);
-      return null;
-    }
-  },
+  // Removed saveToken and getToken as they are now handled by tokenService
+  // Removed saveRefreshToken and getRefreshToken as they are now handled by tokenService
 
   saveEmail: async (email: string): Promise<void> => {
     try {
@@ -60,18 +47,27 @@ export const storage = {
 
   clearAuth: async (): Promise<void> => {
     try {
+      // Clear tokens using the new tokenService
+      await tokenService.clearTokens();
+
       const rememberMe = await storage.getRememberMe();
-      const keys = [TOKEN_KEY, USER_KEY];
+      const keysToClear = [USER_KEY]; // USER_KEY is not managed by tokenService, so keep it for now
 
       if (!rememberMe) {
-        keys.push(SAVED_EMAIL_KEY, REMEMBER_ME_KEY);
+        keysToClear.push(SAVED_EMAIL_KEY, REMEMBER_ME_KEY);
       }
 
-      await AsyncStorage.multiRemove(keys);
+      await AsyncStorage.multiRemove(keysToClear);
     } catch (error) {
       console.error('Erro ao limpar dados de autenticação:', error);
     }
-  }
+  },
+  // Re-adding getToken for AppNavigator initial check, but it will rely on tokenService
+  // This is a temporary bridge, ideally AppNavigator would check tokenService directly or have a global auth state.
+  // For now, let's make it get access token from tokenService.
+  getToken: async (): Promise<string | null> => {
+    return tokenService.getAccessToken();
+  },
 };
 
 export default { storage };

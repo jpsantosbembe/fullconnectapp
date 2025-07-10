@@ -1,8 +1,12 @@
+import {Company} from "@/app/models/Company";
+
 export interface User {
-    id?: string;
+    id: number;
     email: string;
-    name?: string;
+    name: string;
     token?: string;
+    roles: Array<{ id: number; name: string }>;
+    companies: Array<Company>;
 }
 
 export interface LoginCredentials {
@@ -19,7 +23,3 @@ export interface LoginResponse {
 export interface ApiLoginResponse {
     token: string;
 }
-
-const UserModelComponent = () => null;
-
-export default UserModelComponent;

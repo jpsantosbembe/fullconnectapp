@@ -3,7 +3,7 @@ import { StyleSheet, View, Image, TouchableOpacity, Animated } from 'react-nativ
 import { Card, Text, useTheme, Avatar } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Router } from '../../../models/Router';
+import { Router, RouterInterface } from '../../../models/Router';
 import { RootStackParamList } from '../../../navigation/AppNavigator';
 
 type RouterDetailNavigationProp = NativeStackNavigationProp<RootStackParamList, 'RouterDetail'>;
@@ -20,18 +20,17 @@ const RouterCard: React.FC<RouterCardProps> = ({ router }) => {
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const opacityAnim = useRef(new Animated.Value(0.6)).current;
 
-    // Obter o primeiro provider (se houver)
-    const primaryProvider = router.providers && router.providers.length > 0
-        ? router.providers[0]
+    // Obter a primeira interface (se houver)
+    const primaryInterface = router.interfaces && router.interfaces.length > 0
+        ? router.interfaces[0]
         : null;
 
-    // Status geral (ativo se pelo menos um provider estiver ativo)
-    const isActive = router.providers && router.providers.some(provider => provider.status);
+    // Status geral (ativo se o router estiver ativo)
+    const isActive = router.status === 'ACTIVE' || router.status === 'active';
 
     // Criar animação de pulso para o halo
     useEffect(() => {
         // Criar animação pulsante para o halo ao redor do indicador
-        // Agora funciona para ambos os status (ativo ou inativo)
         Animated.loop(
             Animated.parallel([
                 Animated.sequence([
@@ -66,12 +65,44 @@ const RouterCard: React.FC<RouterCardProps> = ({ router }) => {
         navigation.navigate('RouterDetail', { routerId: router.id });
     };
 
-    // Gerar um tempo fictício (em uma aplicação real, isso viria da API)
-    const getRandomTime = () => {
-        const days = Math.floor(Math.random() * 10);
-        const hours = Math.floor(Math.random() * 24);
-        const mins = Math.floor(Math.random() * 60);
-        return `${days}d ${hours}h ${mins}min`;
+    // Obter o uptime do router da nova API ou mostrar valor padrão se não disponível
+    const getUptime = () => {
+        return router.uptime || 'Não disponível';
+    };
+
+    // Formatar tráfego em bits/segundo para uma leitura mais amigável
+    const formatTraffic = (bits: string | undefined): string => {
+        if (!bits) return 'N/A';
+
+        const bitsNum = parseInt(bits, 10);
+        if (bitsNum < 1000) {
+            return `${bitsNum} bps`;
+        } else if (bitsNum < 1000000) {
+            return `${(bitsNum / 1000).toFixed(1)} Kbps`;
+        } else {
+            return `${(bitsNum / 1000000).toFixed(1)} Mbps`;
+        }
+    };
+
+    // Obter logo do provedor se disponível
+    const getProviderLogo = () => {
+        if (primaryInterface && primaryInterface.provider_info) {
+            return primaryInterface.provider_info.logo_url_light_theme;
+        }
+        return null;
+    };
+
+    // Obter nome do provedor se disponível
+    const getProviderName = () => {
+        if (primaryInterface && primaryInterface.provider_info) {
+            return primaryInterface.provider_info.name;
+        }
+        return "Link";
+    };
+
+    // Verificar se temos informações de tráfego
+    const hasTrafficInfo = () => {
+        return primaryInterface && primaryInterface.traffic;
     };
 
     return (
@@ -83,12 +114,12 @@ const RouterCard: React.FC<RouterCardProps> = ({ router }) => {
             <Card.Content style={styles.cardContent}>
                 {/* Primeira linha: Link, imagem e status */}
                 <View style={styles.firstRow}>
-                    {/* Lado esquerdo: "Link" e imagem */}
+                    {/* Lado esquerdo: Nome do router e provedor */}
                     <View style={styles.linkContainer}>
-                        <Text variant="titleMedium" style={styles.linkText}>Link</Text>
-                        {primaryProvider && primaryProvider.logoUrl ? (
+                        <Text variant="titleMedium" style={styles.linkText}>{router.name}</Text>
+                        {getProviderLogo() ? (
                             <Image
-                                source={{ uri: primaryProvider.logoUrl }}
+                                source={{ uri: getProviderLogo() }}
                                 style={styles.logo}
                                 resizeMode="contain"
                             />
@@ -122,11 +153,32 @@ const RouterCard: React.FC<RouterCardProps> = ({ router }) => {
                     </View>
                 </View>
 
-                {/* Segunda linha: Tempo */}
+                {/* Segunda linha: Endereço IP e tempo */}
                 <View style={styles.timeContainer}>
-                    <Text variant="bodyMedium" style={styles.timeText}>
-                        {getRandomTime()}
+                    <Text variant="bodyMedium" style={styles.ipText}>
+                        {router.ip_address_public || 'IP não disponível'}
                     </Text>
+
+                    <Text variant="bodyMedium" style={styles.timeText}>
+                        Uptime: {getUptime()}
+                    </Text>
+
+                    {hasTrafficInfo() && (
+                        <View style={styles.trafficInfo}>
+                            <View style={styles.trafficRow}>
+                                <Text style={styles.trafficLabel}>↓</Text>
+                                <Text style={styles.trafficValue}>
+                                    {formatTraffic(primaryInterface?.traffic?.rx_bits_per_second)}
+                                </Text>
+                            </View>
+                            <View style={styles.trafficRow}>
+                                <Text style={styles.trafficLabel}>↑</Text>
+                                <Text style={styles.trafficValue}>
+                                    {formatTraffic(primaryInterface?.traffic?.tx_bits_per_second)}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 {/* Divider */}
@@ -146,7 +198,7 @@ const styles = StyleSheet.create({
         margin: 8,
         flex: 1,
         maxWidth: '47%',
-        height: 140,
+        height: 160, // Aumentado para acomodar informações de tráfego
     },
     cardContent: {
         height: '100%',
@@ -177,7 +229,6 @@ const styles = StyleSheet.create({
         width: 24,
         height: 24,
     },
-    // Indicador de status fixo
     statusIndicator: {
         width: 10,
         height: 10,
@@ -187,7 +238,6 @@ const styles = StyleSheet.create({
         position: 'absolute',
         zIndex: 2,
     },
-    // Halo animado ao redor do indicador
     halo: {
         width: 10,
         height: 10,
@@ -196,15 +246,43 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
     timeContainer: {
-        marginVertical: 10,
+        marginVertical: 5,
+    },
+    ipText: {
+        color: '#555',
+        fontSize: 12,
+        marginBottom: 2,
     },
     timeText: {
-        color: '#777',
+        color: '#555',
+        fontSize: 12,
+        marginBottom: 4,
+    },
+    trafficInfo: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 4,
+        backgroundColor: '#f0f0f0',
+        padding: 4,
+        borderRadius: 4,
+    },
+    trafficRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    trafficLabel: {
+        color: '#555',
+        fontWeight: 'bold',
+        marginRight: 4,
+    },
+    trafficValue: {
+        fontSize: 11,
+        color: '#333',
     },
     divider: {
         height: 1,
         backgroundColor: '#E0E0E0',
-        marginVertical: 8,
+        marginVertical: 6,
     },
     arrowContainer: {
         position: 'absolute',
